@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>寿司打 自動プレイボット</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', 'Hiragino Sans', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            background: linear-gradient(90deg, #ff6b6b, #feca57);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .panel {
+            background: rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .panel h2 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #feca57;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #a0a0a0;
+        }
+        
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 1rem;
+        }
+        
+        input[type="text"]:focus, textarea:focus {
+            outline: 2px solid #feca57;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(90deg, #ff6b6b, #feca57);
+            color: #1a1a2e;
+            font-weight: bold;
+        }
+        
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            color: #fff;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        #log {
+            height: 300px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+        
+        .log-info { color: #3498db; }
+        .log-success { color: #2ecc71; }
+        .log-warning { color: #f39c12; }
+        .log-error { color: #e74c3c; }
+        
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+        
+        .status-running { background: #2ecc71; }
+        .status-stopped { background: #e74c3c; }
+        
+        .instructions {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #feca57;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .script-output {
+            background: #1a1a2e;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+        
+        .script-container {
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍣 寿司打 自動プレイボット</h1>
+        
+        <div class="instructions">
+            <h3>📖 使い方</h3>
+            <ol>
+                <li><a href="https://sushida.net/play.html" target="_blank" style="color: #feca57;">寿司打</a> を別タブで開く</li>
+                <li>下の「スクリプトをコピー」ボタンをクリック</li>
+                <li>寿司打のページでF12キーを押してデベロッパーツールを開く</li>
+                <li>Consoleタブでスクリプトを貼り付けてEnter</li>
+                <li>ゲームを開始し、表示されたローマ字をこのページで入力</li>
+            </ol>
+        </div>
+        
+        <div class="panels">
+            <div class="panel">
+                <h2>⌨️ 入力コントロール</h2>
+                
+                <div id="statusBadge" class="status status-stopped">停止中</div>
+                
+                <div class="input-group">
+                    <label>ローマ字入力（画面に表示されたものを入力）</label>
+                    <input type="text" id="romajiInput" placeholder="例: arigatougozaimasita">
+                </div>
+                
+                <button class="btn-primary" onclick="sendToGame()">🚀 入力送信</button>
+                <button class="btn-secondary" onclick="clearInput()">クリア</button>
+                
+                <br><br>
+                
+                <div class="input-group">
+                    <label>辞書検索</label>
+                    <input type="text" id="searchInput" placeholder="日本語またはローマ字で検索">
+                </div>
+                
+                <button class="btn-secondary" onclick="searchDict()">🔍 検索</button>
+                
+                <div id="searchResults" style="margin-top: 15px; max-height: 150px; overflow-y: auto;"></div>
+            </div>
+            
+            <div class="panel">
+                <h2>📋 ログ</h2>
+                <button class="btn-secondary" onclick="clearLog()">ログをクリア</button>
+                <br><br>
+                <div id="log"></div>
+            </div>
+        </div>
+        
+        <br>
+        
+        <div class="panel">
+            <h2>📜 寿司打に貼り付けるスクリプト</h2>
+            <p style="margin-bottom: 10px; color: #a0a0a0;">このスクリプトを寿司打のコンソールに貼り付けてください：</p>
+            <button class="btn-primary" onclick="copyScript()">📋 スクリプトをコピー</button>
+            <br><br>
+            <div class="script-container">
+                <div class="script-output" id="scriptDisplay"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ワード辞書
+        const WORD_DICT = {
+            "ああ言えばこう言う": "aaiebakouiu",
+            "開いた口がふさがらない": "aitakutigafusagaranai",
+            "愛に国境はない": "ainikokkyouhanai",
+            "青い空、白い雲": "aoisora,siroikumo",
+            "赤いチューリップ": "akaityu-rippu",
+            "アカデミー賞受賞": "akademi-shoujushou",
+            "あけましておめでとう": "akemasiteomedetou",
+            "アサリのお味噌汁": "asarinoomisosiru",
+            "足がしびれました": "asigasibiremasita",
+            "あしたからダイエット": "asitakaradaietto",
+            "あした天気になーれ": "asitatenkinina-re",
+            "あしたはあしたの風が吹く": "asitahaasitanokazegafuku",
+            "あせると間違えますよ": "aserutomatigaemasuyo",
+            "アップルパイを焼きました": "appurupaiwoyakimasita",
+            "あとは野となれ山となれ": "atohanotonareyamatonare",
+            "あなたに一目ぼれ": "anatanihitomebore",
+            "甘いものは別腹": "amaimonohabetubara",
+            "甘酸っぱい思い出": "amazuppaiomoide",
+            "雨上がりの夜空": "ameagarinoyozora",
+            "雨がやんだら虹が出た": "amegayandaranijigadeta",
+            "アメリカンフットボール": "amerikanfuttobo-ru",
+            "ありがとうございました": "arigatougozaimasita",
+            "アリの巣の観察": "arinosunokansatu",
+            "アルバイト募集中": "arubaitoboshuutyuu",
+            "暗証番号": "anshoubangou",
+            "いいニュースと悪いニュース": "iinyu-sutowaruinyu-su",
+            "家に帰るまでが遠足": "ienikaerumadegaensoku",
+            "いざ尋常に勝負": "izajinjounishoubu",
+            "伊勢海老食べ放題": "iseebitabehoudai",
+            "イソップ物語": "isoppumonogatari",
+            "痛いの痛いの飛んで行け": "itainoitainotondeike",
+            "一球入魂": "ikkyuunyuukon",
+            "いつ見てもきれいだね": "itumitemokireidane",
+            "犬は英語でドッグです": "inuhaeigodedoggudesu",
+            "今何時ですか？": "imananjidesuka?",
+            "今まで本当にお世話になりました": "imamadehontouniosewaninarimasita",
+            "インターネットの仕組み": "inta-nettonosikumi",
+            "ウサギをモフモフする": "usagiwomofumofusuru",
+            "宇宙人に会いましたよ": "utyuujinniaimasitayo",
+            "美しい日本語": "utukusiinihongo",
+            "馬の耳に念仏": "umanomimininenbutu",
+            "運命の赤い糸": "unmeinoakaiito",
+            "英会話教室": "eikaiwakyousitu",
+            "映画館で昼寝": "eigakandehirune",
+            "エビフライ定食": "ebifuraiteishoku",
+            "遠距離恋愛": "enkyorirenai",
+            "お遊びはここまでだ": "oasobihakokomadeda",
+            "おいしいお肉が食べたいな": "oisiionikugatabetaina",
+            "大食い選手権": "ooguisenshuken",
+            "おかげ様で元気です": "okagesamadegenkidesu",
+            "お気に入りに登録": "okiniirinitouroku",
+            "お酒は大人になってから": "osakehaotonaninattekara",
+            "お疲れ様でした": "otukaresamadesita",
+            "男ばっかり三兄弟": "otokobakkarisankyoudai",
+            "鬼は外、福は内": "onihasoto,fukuhauti",
+            "お料理教室": "oryourikyousitu",
+            "温泉に行きたいな": "onsennikitaina",
+            "オンラインショッピング": "onrainshoppingu",
+            "頑張ってください": "ganbattekudasai",
+            "今日はいい天気ですね": "kyouhaiitenkidesune",
+            "今日は楽しかったよ": "kyouhatanosikattayo",
+            "空気清浄機": "kuukiseijouki",
+            "クラシック音楽": "kurasikkuongaku",
+            "クリスマスパーティー": "kurisumasupa-thi-",
+            "継続は力なり": "keizokuhatikaranari",
+            "結婚おめでとう": "kekkonomedetou",
+            "後悔先に立たず": "koukaisakinitatazu",
+            "高級チョコレート": "koukyuutyokore-to",
+            "コーヒー牛乳": "ko-hi-gyuunyuu",
+            "ここからが本番です": "kokokaragahonbandesu",
+            "ここだけの話ですが": "kokodakenohanasidesuga",
+            "こたつから出られない": "kotatukaraderarenai",
+            "ごちそうさまでした": "gotisousamadesita",
+            "子供の頃からの夢でした": "kodomonokorokaranoyumedesita",
+            "これはペンですか？": "korehapendesuka?",
+            "今週のベストセラー": "konshuunobesutosera-",
+            "今度は大丈夫です": "kondohadaijoubudesu",
+            "サービス残業": "sa-bisuzangyou",
+            "最高の雪景色": "saikounoyukigesiki",
+            "砂糖と塩を間違えた": "satoutosioomatigaeta",
+            "寒い日が続いています": "samuihigatuduiteimasu",
+            "シェフの気まぐれサラダ": "shefunokimaguresarada",
+            "自己紹介をしてください": "jikoshoukaiwositekudasai",
+            "宿題を忘れました": "shukudaiwowasuremasita",
+            "趣味はお茶とお花とお琴です": "shumihaotyatoohanatookotodesu",
+            "少年よ大志を抱け": "shounenyotaisiwoidake",
+            "食後のコーヒー": "shokugonoko-hi-",
+            "白いご飯が食べたい": "siroigohangatabetai",
+            "新入社員": "shinnyuushain",
+            "心理学を専攻する": "sinrigakuwosenkousuru",
+            "スイーツ食べ放題": "sui-tutabehoudai",
+            "睡魔には勝てなかった": "suimanihakatenakatta",
+            "ストレス解消": "sutoresukaishou",
+            "世界一周旅行": "sekaiisshuuryokou",
+            "絶体絶命の大ピンチ": "zettaizetumeinodaipinti",
+            "全力を尽くします": "zenryokuwotukusimasu",
+            "そこをまっすぐ行ってください": "sokowomassuguittekudasai",
+            "卒業文集": "sotugyoubunshuu",
+            "そろそろ心が折れそうです": "sorosorokokorogaoresoudesu",
+            "大切な書類": "taisetunashorui",
+            "台風接近中": "taifuusekkintyuu",
+            "太陽系第三惑星地球": "taiyoukeidaisanwakuseitikyuu",
+            "ダウンロードを開始します": "daunro-dowokaisisimasu",
+            "ただ今準備中です": "tadaimajunbityuudesu",
+            "脱出成功！": "dasshutsuseikou!",
+            "立つ鳥跡を濁さず": "tatutoriatowonigosazu",
+            "食べたら歯を磨こうね": "tabetarahawomigakoune",
+            "だるまさんが転んだ": "darumasangakoronda",
+            "誕生日おめでとう": "tanjoubiomedetou",
+            "誕生日プレゼント": "tanjoubipurezento",
+            "地球は青かった": "tikyuuhaaokatta",
+            "チャレンジ精神": "tyarenjiseishin",
+            "ちょっと待ってください": "tyottomattekudasai",
+            "月がきれいですね": "tukigakireidesune",
+            "低気圧が発達中": "teikiatugahattatutyuu",
+            "電気を大切に": "denkiwotaisetuni",
+            "伝説の勇者": "densetunoyuusha",
+            "トイレはどこですか？": "toirehadokodesuka?",
+            "東京と京都": "toukyoutokyouto",
+            "どうしても思い出せない": "dousitemoomoidasenai",
+            "読書感想文": "dokushokansoubun",
+            "時計が壊れたんです": "tokeigakowaretandesu",
+            "隣の客はよく柿食う客だ": "tonarinokyakuhayokukakikuukyakuda",
+            "ドラマチックな出会い": "doramatikkunadeai",
+            "とりあえずビールちょうだい": "toriaezubi-rutyoudai",
+            "長い夜になりそうです": "nagaiyoruninarisoudesu",
+            "仲良しこよしのお友達": "nakayosikoyosinootomodati",
+            "夏休みの宿題終わった？": "natuyasuminoshukudaiowatta?",
+            "何だか嫌な予感がする": "nandakaiyanayokangasuru",
+            "日本の首都は東京": "nihonnoshutohatoukyou",
+            "庭には二羽にわとりがいる": "niwanihaniwaniwatorigairu",
+            "猫の手も借りたいです": "nekonotemokaritaidesu",
+            "熱帯雨林気候": "nettaiurinkikou",
+            "布団から出られない": "futonkaraderarenai",
+            "冬将軍の到来": "fuyushogunnnotourai",
+            "プログラミング言語": "puroguramingugengo",
+            "プロフェッショナル": "purofesshonaru",
+            "平均寿命": "heikinjumyou",
+            "北海道直送": "hokkaidoutyokusou",
+            "本当にあった怖い話": "hontouniattakowaihanasi",
+            "迷子のご案内": "maigonogoannai",
+            "また会おうね": "mataaou",
+            "見つかってしまった": "mitukattesimatta",
+            "身分証明書": "mibunshoumeisho",
+            "無人島生活": "mujintouseikatu",
+            "メールアドレスを間違えた": "me-ruadoresuwomatigaeta",
+            "もう一度やり直そう": "mouitidoyarinaosou",
+            "もう少し待ってください": "mousukosimattekudasai",
+            "桃がドンブラコと流れてきました": "momogadonburakotonagaretekimasita",
+            "盛り上がってまいりました": "moriagattemairimasita",
+            "やっぱりやめておけばよかった": "yappariyameteokebayokatta",
+            "遊園地でデート": "yuuentidede-to",
+            "有給休暇": "yuukyuukyuuka",
+            "優勝おめでとう！": "yuushouomedetou!",
+            "よろしくお願いします": "yorosikuonegaisimasu",
+            "来年のカレンダー": "rainennnokarenda-",
+            "料理は愛情": "ryourihaaijou",
+            "ルールを守りましょう": "ru-ruwomamorimashou",
+            "冷蔵庫のプリン知らない？": "reizoukonopurinsiranai?",
+            "廊下を走らない": "roukawohasiranai",
+            "労働基準法": "roudoukijunhou",
+            "ログインしてください": "roguinsitekudasai",
+            "分かった人は手を挙げて": "wakattahitohatewoagete"
+        };
+
+        // スクリプト生成
+        const injectionScript = `
+// 寿司打ボット - キー入力受信スクリプト
+(() => {
+    console.log('🍣 寿司打ボット受信スクリプトをロード中...');
+    
+    // キー送信関数
+    function sendKey(char) {
+        const keyCode = char.toUpperCase().charCodeAt(0);
+        const key = char.toLowerCase();
+        
+        const eventInit = {
+            key: key,
+            code: 'Key' + key.toUpperCase(),
+            keyCode: keyCode,
+            which: keyCode,
+            bubbles: true,
+            cancelable: true
+        };
+        
+        // 特殊文字
+        if (char === '-') { eventInit.key = '-'; eventInit.code = 'Minus'; eventInit.keyCode = 189; }
+        else if (char === ',') { eventInit.key = ','; eventInit.code = 'Comma'; eventInit.keyCode = 188; }
+        else if (char === '.') { eventInit.key = '.'; eventInit.code = 'Period'; eventInit.keyCode = 190; }
+        else if (char === '?') { eventInit.key = '?'; eventInit.code = 'Slash'; eventInit.keyCode = 191; eventInit.shiftKey = true; }
+        else if (char === '!') { eventInit.key = '!'; eventInit.code = 'Digit1'; eventInit.keyCode = 49; eventInit.shiftKey = true; }
+        
+        document.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+        document.dispatchEvent(new KeyboardEvent('keypress', { ...eventInit, charCode: eventInit.keyCode }));
+        document.dispatchEvent(new KeyboardEvent('keyup', eventInit));
+        
+        const canvas = document.querySelector('canvas');
+        if (canvas) {
+            canvas.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+            canvas.dispatchEvent(new KeyboardEvent('keypress', { ...eventInit, charCode: eventInit.keyCode }));
+            canvas.dispatchEvent(new KeyboardEvent('keyup', eventInit));
+        }
+    }
+    
+    // 入力関数
+    window.sushidaType = async function(text) {
+        console.log('⌨️ 入力: ' + text);
+        for (let i = 0; i < text.length; i++) {
+            sendKey(text[i]);
+            await new Promise(r => setTimeout(r, 35 + Math.random() * 25));
+        }
+        console.log('✅ 完了');
+    };
+    
+    console.log('✅ 準備完了！');
+    console.log('使い方: sushidaType("ローマ字")');
+})();
+`;
+
+        // スクリプト表示
+        document.getElementById('scriptDisplay').textContent = injectionScript;
+
+        // ログ追加
+        function addLog(message, type = 'info') {
+            const log = document.getElementById('log');
+            const time = new Date().toLocaleTimeString('ja-JP');
+            const div = document.createElement('div');
+            div.className = `log-${type}`;
+            div.textContent = `[${time}] ${message}`;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // 送信
+        function sendToGame() {
+            const input = document.getElementById('romajiInput').value.trim();
+            if (!input) {
+                addLog('ローマ字を入力してください', 'warning');
+                return;
+            }
+            
+            addLog(`入力送信: ${input}`, 'success');
+            
+            // クリップボードにコピー（ユーザーがコンソールに貼り付け）
+            const command = `sushidaType("${input}")`;
+            navigator.clipboard.writeText(command).then(() => {
+                addLog(`コマンドをコピーしました: ${command}`, 'info');
+                addLog('寿司打のコンソールで Ctrl+V → Enter', 'info');
+            });
+            
+            document.getElementById('romajiInput').value = '';
+        }
+
+        // 入力クリア
+        function clearInput() {
+            document.getElementById('romajiInput').value = '';
+        }
+
+        // ログクリア
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // 辞書検索
+        function searchDict() {
+            const keyword = document.getElementById('searchInput').value.trim();
+            if (!keyword) return;
+            
+            const results = Object.entries(WORD_DICT).filter(([k, v]) => 
+                k.includes(keyword) || v.includes(keyword)
+            );
+            
+            const container = document.getElementById('searchResults');
+            container.innerHTML = '';
+            
+            if (results.length === 0) {
+                container.innerHTML = '<p style="color: #e74c3c;">見つかりませんでした</p>';
+                return;
+            }
+            
+            results.slice(0, 10).forEach(([word, romaji]) => {
+                const div = document.createElement('div');
+                div.style.cssText = 'padding: 8px; background: rgba(0,0,0,0.2); margin-bottom: 5px; border-radius: 5px; cursor: pointer;';
+                div.innerHTML = `<strong>${word}</strong><br><span style="color: #feca57;">${romaji}</span>`;
+                div.onclick = () => {
+                    document.getElementById('romajiInput').value = romaji;
+                    addLog(`選択: ${word} → ${romaji}`, 'info');
+                };
+                container.appendChild(div);
+            });
+        }
+
+        // スクリプトコピー
+        function copyScript() {
+            navigator.clipboard.writeText(injectionScript).then(() => {
+                addLog('スクリプトをコピーしました！寿司打のコンソールに貼り付けてください', 'success');
+            });
+        }
+
+        // Enterキーで送信
+        document.getElementById('romajiInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendToGame();
+        });
+
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchDict();
+        });
+
+        // 初期ログ
+        addLog('寿司打ボットを起動しました', 'success');
+        addLog('上の手順に従ってセットアップしてください', 'info');
+    </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "sushida-bot",
+  "version": "1.0.0",
+  "description": "寿司打 自動入力ボット",
+  "main": "sushida_auto.js",
+  "scripts": {
+    "start": "node sushida_puppeteer.js",
+    "auto": "node sushida_auto.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0",
+    "tesseract.js": "^5.0.0",
+    "sharp": "^0.33.0"
+  }
+}
